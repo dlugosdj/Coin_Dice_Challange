@@ -1,0 +1,362 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Coin & Dice Challenge</title>
+  <style>
+    :root{font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial;line-height:1.4}
+    *{box-sizing:border-box}
+    body{display:flex;align-items:center;justify-content:center;min-height:100vh;background:linear-gradient(180deg,#071021,#0b1220);color:#e6eef8;margin:0;padding:32px}
+    .card{width:760px;max-width:96%;background:linear-gradient(180deg,#061323 0%, #071826 100%);border:1px solid rgba(255,255,255,0.04);padding:22px;border-radius:14px;box-shadow:0 12px 40px rgba(2,6,23,0.6)}
+    h1{margin:0 0 4px;font-size:22px}
+    p.lead{margin:0 0 16px;color:#9fb4d4}
+    .stage{display:grid;grid-template-columns:1fr 200px;gap:14px;align-items:center;padding:14px;border-radius:10px;background:linear-gradient(180deg,rgba(255,255,255,0.02),rgba(255,255,255,0.01));margin-bottom:12px}
+    .stage h2{margin:0;font-size:15px}
+    .controls{display:flex;gap:8px;justify-content:flex-end}
+    button{background:#1f6feb;border:none;color:white;padding:9px 14px;border-radius:10px;font-weight:700;cursor:pointer;box-shadow:0 6px 18px rgba(31,111,235,0.12);transition:transform .12s ease,opacity .12s ease}
+    button:active{transform:translateY(1px)}
+    button.secondary{background:#334155}
+    button.warn{background:#ef4444}
+    button:disabled{opacity:0.45;cursor:not-allowed;transform:none}
+    .result{font-weight:700;color:#cfe9ff}
+    .log{background:rgba(255,255,255,0.02);padding:12px;border-radius:10px;color:#bcd6ef;font-size:15px;min-height:78px;display:flex;flex-direction:column;justify-content:center}
+    .dice-row{display:flex;gap:12px}
+    .die{width:56px;height:56px;border-radius:10px;background:linear-gradient(180deg,#0b2630,#06202f);display:flex;align-items:center;justify-content:center;font-weight:900;color:#e6f9ff;font-size:20px;box-shadow:inset 0 -6px 18px rgba(0,0,0,0.45),0 10px 24px rgba(2,6,23,0.5);transition:transform .18s cubic-bezier(.2,.9,.3,1)}
+    .die.rolling{animation:dieRollShake .8s cubic-bezier(.2,.9,.3,1)}
+    @keyframes dieRollShake{20%{transform:translateY(-6px) rotate(-6deg)}40%{transform:translateX(6px) rotate(6deg)}60%{transform:translateY(4px) rotate(-3deg)}80%{transform:translateX(-4px) rotate(3deg)}100%{transform:none}}
+
+    .coin-wrap{display:flex;align-items:center;gap:12px}
+    .coin{width:72px;height:72px;border-radius:50%;position:relative;transform-style:preserve-3d;transition:transform 1s;perspective:900px}
+    .coin-face{position:absolute;inset:0;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:18px;color:#072b3a}
+    .coin-front{background:linear-gradient(180deg,#ffd166,#ffb703);transform:rotateY(0deg) translateZ(36px)}
+    .coin-back{background:linear-gradient(180deg,#a1cfff,#7aa7ff);transform:rotateY(180deg) translateZ(36px)}
+    .coin.flipping{animation:flipAnim 1s cubic-bezier(.2,.9,.3,1)}
+    @keyframes flipAnim{0%{transform:rotateX(0) rotateY(0)}50%{transform:rotateX(360deg) rotateY(720deg)}100%{transform:rotateX(540deg) rotateY(1080deg)}}
+
+    .footer{display:flex;justify-content:space-between;align-items:center;margin-top:12px}
+    .hint{color:#8ea7c7;font-size:13px}
+  </style>
+</head>
+<body>
+  <main class="card">
+    <h1>Coin & Dice Challenge</h1>
+    <p class="lead">Pass three stages: Coin flip (Heads), Two dice (not 7), Three dice (special sum).</p>
+
+    <section id="coinStage" class="stage">
+      <div>
+        <h2>Stage 1 — Coin Flip</h2>
+        <div class="log" id="coinLog">
+          <div style="display:flex;align-items:center;gap:12px">
+            <div class="coin-wrap">
+              <div id="coin" class="coin" aria-hidden="true">
+                <div class="coin-face coin-front">Heads</div>
+                <div class="coin-face coin-back">Tails</div>
+              </div>
+            </div>
+            <div style="flex:1">Click "Flip Coin" to start.</div>
+          </div>
+        </div>
+      </div>
+      <div class="controls">
+        <button id="flipCoinBtn">Flip Coin</button>
+        <button id="restartBtn" class="secondary">Restart</button>
+      </div>
+    </section>
+
+    <section id="twoDiceStage" class="stage">
+      <div>
+        <h2>Stage 2 — Two Dice</h2>
+        <div class="log" id="twoDiceLog">Locked until you flip Heads.</div>
+      </div>
+      <div class="controls">
+        <button id="rollTwoBtn" disabled>Roll 2 Dice</button>
+      </div>
+    </section>
+
+    <section id="threeDiceStage" class="stage">
+      <div>
+        <h2>Stage 3 — Three Dice</h2>
+        <div class="log" id="threeDiceLog">Locked until you pass Stage 2.</div>
+      </div>
+      <div class="controls">
+        <button id="rollThreeBtn" disabled>Roll 3 Dice</button>
+      </div>
+    </section>
+
+    <div class="footer">
+      <div class="hint">Tip: If you lose you must start over from the coin flip.</div>
+      <div class="result" id="finalResult"></div>
+    </div>
+    
+    <section id="chartSection" style="margin-top:18px;background:linear-gradient(180deg,rgba(255,255,255,0.01),transparent);padding:12px;border-radius:10px">
+      <h2 style="margin:0 0 8px;font-size:15px">Expectation Chart</h2>
+      <div style="font-size:13px;color:#9fb4d4;margin-bottom:8px">Tracks previous expected total, updated expected total, and change after each action.</div>
+      <table id="expectationChart" style="width:100%;border-collapse:collapse;color:#cfe9ff">
+        <thead>
+          <tr style="text-align:left;color:#9fb4d4;font-weight:700;font-size:13px;border-bottom:1px solid rgba(255,255,255,0.03)">
+            <th style="padding:6px 8px">Step</th>
+            <th style="padding:6px 8px">Previous Expected</th>
+            <th style="padding:6px 8px">New Expected</th>
+            <th style="padding:6px 8px">Change</th>
+          </tr>
+        </thead>
+        <tbody style="font-size:14px" id="chartBody"></tbody>
+        <tfoot>
+          <tr style="border-top:1px solid rgba(255,255,255,0.03)">
+            <td style="padding:6px 8px;font-weight:700">Totals</td>
+            <td></td>
+            <td></td>
+            <td id="changeTotal" style="padding:6px 8px;font-weight:700">0</td>
+          </tr>
+        </tfoot>
+      </table>
+    </section>
+  </main>
+
+  <script>
+    // State
+    let stage = 1; // 1 coin, 2 two-dice, 3 three-dice
+
+    // Elements
+    const flipCoinBtn = document.getElementById('flipCoinBtn');
+    const rollTwoBtn = document.getElementById('rollTwoBtn');
+    const rollThreeBtn = document.getElementById('rollThreeBtn');
+    const restartBtn = document.getElementById('restartBtn');
+    const coinLog = document.getElementById('coinLog');
+    const twoDiceLog = document.getElementById('twoDiceLog');
+    const threeDiceLog = document.getElementById('threeDiceLog');
+    const finalResult = document.getElementById('finalResult');
+    const coinElem = document.getElementById('coin');
+    // Chart elements
+    const chartBody = document.getElementById('chartBody');
+    const changeTotalEl = document.getElementById('changeTotal');
+
+    // Compute expected value for stage 3 analytically (all combinations of 3 dice)
+    function computeEStage3(){
+      let total = 0;
+      for(let a=1;a<=6;a++){
+        for(let b=1;b<=6;b++){
+          for(let c=1;c<=6;c++){
+            if(a%2===0 && b%2===0 && c%2===0){
+              total += a+b+c;
+            } else if(a%2===1 && b%2===1 && c%2===1){
+              total += -(a+b+c);
+            } else {
+              total += a + c - b;
+            }
+          }
+        }
+      }
+      return total / 216;
+    }
+
+    const E_stage3 = computeEStage3();
+    const P_sum7 = 6/36; // two-dice sum 7 probability
+    const P_not7 = 1 - P_sum7;
+    const E_twoDice = P_not7 * E_stage3; // expected final after passing two-dice stage (before roll)
+    const E_beforeFlip = 0.5 * E_twoDice; // expected starting before coin flip
+
+    // Chart bookkeeping
+    const chartRows = [];
+    function fmt(n){ return (typeof n === 'number') ? n.toFixed(3) : n }
+    function addChartRow(step, previous, current){
+      const change = (typeof previous === 'number' && typeof current === 'number') ? (current - previous) : NaN;
+      chartRows.push({step, previous, current, change});
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td style="padding:6px 8px">${step}</td>
+        <td style="padding:6px 8px">${fmt(previous)}</td>
+        <td style="padding:6px 8px">${fmt(current)}</td>
+        <td style="padding:6px 8px">${isNaN(change)?'—':fmt(change)}</td>`;
+      chartBody.appendChild(tr);
+      updateChangeTotal();
+    }
+
+    function updateChangeTotal(){
+      const sum = chartRows.reduce((s,r)=> s + (isNaN(r.change)?0:r.change), 0);
+      changeTotalEl.textContent = sum.toFixed(3);
+    }
+
+    // initialize chart with starting expected value (before coin flip)
+    let currentExpected = E_beforeFlip;
+    // we don't add a row yet; rows are added after actions per request
+
+    function rollDie(){ return Math.floor(Math.random()*6)+1 }
+
+    function setStage(s){
+      stage = s;
+      // buttons enabled based on stage
+      flipCoinBtn.disabled = false;
+      rollTwoBtn.disabled = s < 2;
+      rollThreeBtn.disabled = s < 3;
+      finalResult.textContent = '';
+      if(s === 1){
+        coinLog.querySelector('div[style]')?.nextElementSibling && (coinLog.querySelector('div[style]').nextElementSibling.textContent = 'Click "Flip Coin" to start.');
+        twoDiceLog.textContent = 'Locked until you flip Heads.';
+        threeDiceLog.textContent = 'Locked until you pass Stage 2.';
+      }
+    }
+
+    function lose(reason){
+      // Show message and reset to stage 1
+      // keep coin visual but update text
+      const text = reason + ' — You lost. Start over by flipping the coin.';
+      if(coinLog){
+        const info = coinLog.querySelector('div[style]');
+        if(info && info.nextElementSibling) info.nextElementSibling.textContent = text;
+      }
+      twoDiceLog.textContent = 'Locked until you flip Heads.';
+      threeDiceLog.textContent = 'Locked until you pass Stage 2.';
+      flipCoinBtn.disabled = false;
+      rollTwoBtn.disabled = true;
+      rollThreeBtn.disabled = true;
+      finalResult.textContent = 'Lost — ' + reason;
+      stage = 1;
+    }
+
+    // Animated coin flip: returns 'Heads' or 'Tails' after animation
+    function flipCoinAnimated(){
+      return new Promise(resolve => {
+        flipCoinBtn.disabled = true;
+        coinElem.classList.remove('show-heads','show-tails');
+        coinElem.classList.add('flipping');
+        // choose result
+        const result = Math.random() < 0.5 ? 'Tails' : 'Heads';
+        // animation length matches CSS (1s)
+        setTimeout(()=>{
+          coinElem.classList.remove('flipping');
+          // place coin to show final face
+          if(result === 'Heads') coinElem.style.transform = 'rotateY(0deg)';
+          else coinElem.style.transform = 'rotateY(180deg)';
+          flipCoinBtn.disabled = false;
+          resolve(result);
+        }, 1000);
+      });
+    }
+
+    flipCoinBtn.addEventListener('click', async ()=>{
+      // record previous expected before flip
+      const previous = currentExpected;
+      const v = await flipCoinAnimated();
+      // update log text (keep coin visual intact)
+      const info = coinLog.querySelector('div[style]');
+      if(info && info.nextElementSibling) info.nextElementSibling.textContent = 'Coin: ' + v;
+      let newExpected;
+      if(v === 'Heads'){
+        twoDiceLog.textContent = 'You flipped Heads — you may roll two dice.';
+        rollTwoBtn.disabled = false;
+        stage = 2;
+        newExpected = E_twoDice; // expected now that we've got heads
+      } else {
+        lose('Tails');
+        newExpected = 0; // lost, expectation becomes 0
+      }
+      addChartRow('Coin Flip', previous, newExpected);
+      currentExpected = newExpected;
+    });
+
+    // Animated dice roll helper: updates die elements during roll
+    function animateDiceRoll(dieElems, duration = 800){
+      return new Promise(resolve => {
+        const start = Date.now();
+        dieElems.forEach(de => de.classList.add('rolling'));
+        const iv = setInterval(()=>{
+          dieElems.forEach(d => d.textContent = rollDie());
+          if(Date.now() - start >= duration){
+            clearInterval(iv);
+            dieElems.forEach(de => de.classList.remove('rolling'));
+            // final values
+            const final = dieElems.map(_=>rollDie());
+            dieElems.forEach((d,i)=> d.textContent = final[i]);
+            resolve(final);
+          }
+        }, 80);
+      });
+    }
+
+    rollTwoBtn.addEventListener('click', async ()=>{
+      // record previous expected before roll
+      const previous = currentExpected;
+      rollTwoBtn.disabled = true;
+      twoDiceLog.innerHTML = '';
+      const row = document.createElement('div'); row.className = 'dice-row';
+      const die1 = document.createElement('div'); die1.className='die'; die1.textContent = '—'; row.appendChild(die1);
+      const die2 = document.createElement('div'); die2.className='die'; die2.textContent = '—'; row.appendChild(die2);
+      twoDiceLog.appendChild(row);
+      const t = document.createElement('div'); t.style.marginTop='10px'; twoDiceLog.appendChild(t);
+
+      const final = await animateDiceRoll([die1,die2], 900);
+      const d1 = final[0], d2 = final[1];
+      const sum = d1 + d2;
+      t.textContent = 'Sum: ' + sum;
+      let newExpected;
+      if(sum === 7){
+        lose('Rolled a 7 on two dice');
+        newExpected = 0;
+      } else {
+        threeDiceLog.textContent = 'Passed Stage 2 — you may roll three dice.';
+        rollThreeBtn.disabled = false;
+        stage = 3;
+        newExpected = E_stage3;
+      }
+      addChartRow('Two Dice', previous, newExpected);
+      currentExpected = newExpected;
+    });
+
+    rollThreeBtn.addEventListener('click', async ()=>{
+      // record previous expected
+      const previous = currentExpected;
+      rollThreeBtn.disabled = true;
+      threeDiceLog.innerHTML = '';
+      const row = document.createElement('div'); row.className = 'dice-row';
+      const dEls = [1,2,3].map(()=>{const dd=document.createElement('div');dd.className='die';dd.textContent='—';row.appendChild(dd);return dd});
+      threeDiceLog.appendChild(row);
+      const t = document.createElement('div'); t.style.marginTop='10px'; threeDiceLog.appendChild(t);
+
+      const final = await animateDiceRoll(dEls, 1000);
+      const [a,b,c] = final;
+      const allEven = (a%2===0) && (b%2===0) && (c%2===0);
+      const allOdd = (a%2===1) && (b%2===1) && (c%2===1);
+      let total;
+      if(allEven){
+        total = a + b + c;
+        t.textContent = `All even — sum = ${total}`;
+      } else if(allOdd){
+        total = -(a + b + c);
+        t.textContent = `All odd — sum (negative) = ${total}`;
+      } else {
+        total = a + c - b;
+        t.textContent = `Mixed parity — total = 1st + 3rd - 2nd = ${a} + ${c} - ${b} = ${total}`;
+      }
+
+      finalResult.textContent = 'Final result: ' + total;
+      // After finishing stage 3, disable further rolls until restart
+      flipCoinBtn.disabled = true;
+      rollTwoBtn.disabled = true;
+      rollThreeBtn.disabled = true;
+
+      // update chart row for three-dice final result
+      const newExpected = total; // final is now a concrete number
+      addChartRow('Three Dice', previous, newExpected);
+      currentExpected = newExpected;
+    });
+
+    restartBtn.addEventListener('click', ()=>{
+      // reset coin visual
+      coinElem.style.transform = 'rotateY(0deg)';
+      const info = coinLog.querySelector('div[style]');
+      if(info && info.nextElementSibling) info.nextElementSibling.textContent = 'Click \"Flip Coin\" to start.';
+      // reset expectation chart and bookkeeping
+      if(chartBody) chartBody.innerHTML = '';
+      if(Array.isArray(chartRows)) chartRows.length = 0;
+      if(changeTotalEl) changeTotalEl.textContent = '0';
+      // restore initial expected value before flip
+      currentExpected = E_beforeFlip;
+      setStage(1);
+    });
+
+    // initialize
+    setStage(1);
+  </script>
+</body>
+</html>
